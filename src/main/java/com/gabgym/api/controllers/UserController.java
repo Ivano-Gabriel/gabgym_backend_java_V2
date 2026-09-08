@@ -65,6 +65,21 @@ public class UserController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
+    // Atualiza os dados de perfil do usuário (nome, idade, peso, altura, gênero, objetivo, nível de atividade)
+    @PutMapping("/{id}")
+    public ResponseEntity<User> updateUser(@PathVariable Long id, @RequestBody User dadosNovos) {
+        return userRepo.findById(id).map(user -> {
+            if (dadosNovos.getName() != null) user.setName(dadosNovos.getName());
+            if (dadosNovos.getAge() != null) user.setAge(dadosNovos.getAge());
+            if (dadosNovos.getWeight() != null) user.setWeight(dadosNovos.getWeight());
+            if (dadosNovos.getHeight() != null) user.setHeight(dadosNovos.getHeight());
+            if (dadosNovos.getGender() != null) user.setGender(dadosNovos.getGender());
+            if (dadosNovos.getObjective() != null) user.setObjective(dadosNovos.getObjective());
+            if (dadosNovos.getActivityLevel() != null) user.setActivityLevel(dadosNovos.getActivityLevel());
+            return ResponseEntity.ok(userRepo.save(user));
+        }).orElse(ResponseEntity.notFound().build());
+    }
+
     @PostMapping("/{id}/logs")
 public ResponseEntity<DailyLog> addLog(@PathVariable Long id, @RequestBody DailyLog log) {
     return userRepo.findById(id).map(user -> {
