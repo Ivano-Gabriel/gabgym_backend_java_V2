@@ -31,4 +31,11 @@ public class ExerciseController {
     public ResponseEntity<List<Exercise>> getExercises() {
         return ResponseEntity.ok(exerciseRepo.findAll());
     }
+
+    @GetMapping("/exercises/{id}")
+    public ResponseEntity<Exercise> getExerciseById(@PathVariable Long id) {
+        return exerciseRepo.findById(id)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
+    }
 }
