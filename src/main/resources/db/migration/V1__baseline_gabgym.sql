@@ -94,13 +94,4 @@ CREATE INDEX idx_food_items_category ON gabgym.food_items(category_id);
 
 -- Supabase: o frontend fala apenas com a API Java. Nunca expor o schema no Data API.
 REVOKE ALL ON SCHEMA gabgym FROM PUBLIC;
-DO $
-BEGIN
-    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'anon') THEN
-        EXECUTE 'REVOKE ALL ON SCHEMA gabgym FROM anon';
-    END IF;
-    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticated') THEN
-        EXECUTE 'REVOKE ALL ON SCHEMA gabgym FROM authenticated';
-    END IF;
-END;
-$;
+-- O schema privado não é exposto pelo Data API; acesso dos papéis anon/authenticated não é concedido.
