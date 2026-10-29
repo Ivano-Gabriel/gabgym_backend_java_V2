@@ -1,0 +1,23 @@
+# Piloto GABGYM — verificação em dias úteis (08h–18h, UTC-3).
+# IMPORTANTE: GitHub pode atrasar/ignorar execuções agendadas; NÃO é SLA.
+# Em produção, usar serviço com uptime garantido e monitoramento dedicado.
+# Executa somente quando incorporado à branch padrão (main).
+name: GabGym commercial-hours warmup
+on:
+  schedule:
+    # 08:07–18:57 em Alagoas (UTC-3), de segunda a sexta.
+    - cron: '7-57/10 11-21 * * 1-5'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - name: Ping GabGym API
+        run: |
+          curl --fail --silent --show-error --location \
+            --connect-timeout 20 --max-time 140 \
+            --retry 1 --retry-delay 4 \
+            https://gabgym-backend-java-v2.onrender.com/ping
