@@ -26,7 +26,7 @@ class AuthorizationServiceTest {
         user.setRole(role);
         when(users.findByUsername(username)).thenReturn(Optional.of(user));
         SecurityContextHolder.getContext().setAuthentication(
-            new UsernamePasswordAuthenticationToken(username, null));
+            new UsernamePasswordAuthenticationToken(username, null, java.util.List.of()));
     }
 
     @AfterEach void clearContext() { SecurityContextHolder.clearContext(); }
