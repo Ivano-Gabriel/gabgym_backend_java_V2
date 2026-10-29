@@ -41,7 +41,7 @@ public class MetaController {
     @PutMapping("/{id}/status")
     public ResponseEntity<Meta> updateStatus(@PathVariable Long id, @RequestBody Map<String, String> data) {
         String status = data.get("status");
-        if (!List.of("ATIVA", "CONCLUIDA", "DESISTIDA").contains(status)) {
+        if (status == null || !List.of("ATIVA", "CONCLUIDA", "DESISTIDA").contains(status)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Status inválido");
         }
         return metas.findById(id).map(meta -> {
