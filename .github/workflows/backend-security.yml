@@ -17,7 +17,9 @@ jobs:
           java-version: '21'
           cache: maven
       - name: Compile and run tests
-        run: ./mvnw -B clean test
+        run: |
+          chmod +x ./mvnw
+          ./mvnw -B clean test
         env:
           DB_URL: jdbc:h2:mem:gabgymtest;DB_CLOSE_DELAY=-1
           DB_USERNAME: sa
