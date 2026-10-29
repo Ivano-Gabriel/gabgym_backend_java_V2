@@ -1,24 +1,29 @@
 package com.gabgym.api.entities;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import java.util.List;
-import com.fasterxml.jackson.annotation.JsonIgnore;
 
 @Entity
 @Table(name = "users")
 public class User {
-
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(unique = true, nullable = false)
+    @Column(unique = true, nullable = false, length = 80)
     private String username;
 
+    @JsonIgnore
     @Column(nullable = false)
     private String password;
 
-    // Dados do Perfil (que antes ficavam separados)
+    @Enumerated(EnumType.STRING)
+    @Column(length = 30)
+    private UserRole role = UserRole.ALUNO;
+
+    private Boolean active = true;
+    private Integer sessionVersion = 0;
+
     private String name;
     private Integer age;
     private Double weight;
@@ -27,20 +32,26 @@ public class User {
     private String objective;
     private String activityLevel;
 
-    // Histórico diário (1 Usuário tem Vários Logs)
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL)
     @JsonIgnore
     private List<DailyLog> logs;
 
     public User() {}
-
-    // Getters e Setters
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
     public String getUsername() { return username; }
     public void setUsername(String username) { this.username = username; }
+
+    @JsonIgnore
     public String getPassword() { return password; }
     public void setPassword(String password) { this.password = password; }
+    public UserRole getRole() { return role == null ? UserRole.ALUNO : role; }
+    public void setRole(UserRole role) { this.role = role; }
+    public boolean isActive() { return active == null || active; }
+    public void setActive(boolean active) { this.active = active; }
+    public int getSessionVersion() { return sessionVersion == null ? 0 : sessionVersion; }
+    public void setSessionVersion(int version) { this.sessionVersion = version; }
+
     public String getName() { return name; }
     public void setName(String name) { this.name = name; }
     public Integer getAge() { return age; }
