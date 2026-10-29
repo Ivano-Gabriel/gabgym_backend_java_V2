@@ -32,25 +32,6 @@ public class DataInitializer {
         return args -> {
 
             // ===================================================================
-            // 0. USUÁRIO DE TESTE (pra você logar direto sem recadastrar toda hora)
-            //    login: teste   senha: teste123
-            // ===================================================================
-            if (userRepo.findByUsername("teste").isEmpty()) {
-                System.out.println(">>> Criando usuário de teste...");
-                User dummy = new User();
-                dummy.setUsername("teste");
-                dummy.setPassword(passwordEncoder.encode("teste123"));
-                dummy.setName("Gabriel Teste");
-                dummy.setAge(28);
-                dummy.setWeight(80.0);
-                dummy.setHeight(178.0);
-                dummy.setGender("male");
-                dummy.setObjective("gain-muscle");
-                dummy.setActivityLevel("moderate");
-                userRepo.save(dummy);
-            }
-
-            // ===================================================================
             // 1. ALIMENTOS (roda só se a tabela de categorias estiver vazia)
             // ===================================================================
             if (categoryRepo.count() == 0) {

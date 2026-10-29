@@ -10,38 +10,36 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import jakarta.servlet.http.HttpServletResponse;
 
 @Configuration
 public class SecurityConfig {
-
-    private final JwtAuthFilter jwtAuthFilter;
-
-    public SecurityConfig(JwtAuthFilter jwtAuthFilter) {
-        this.jwtAuthFilter = jwtAuthFilter;
-    }
+    private final JwtAuthFilter jwtFilter;
+    public SecurityConfig(JwtAuthFilter jwtFilter) { this.jwtFilter = jwtFilter; }
 
     @Bean
-    public PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder();
-    }
+    public PasswordEncoder passwordEncoder() { return new BCryptPasswordEncoder(12); }
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-        http
+        return http
             .cors(Customizer.withDefaults())
-            .csrf(csrf -> csrf.disable())
+            .csrf(csrf -> csrf.disable()) // Token Bearer em header, sem cookie automático.
+            .httpBasic(basic -> basic.disable())
+            .formLogin(form -> form.disable())
             .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+            .exceptionHandling(errors -> errors
+                .authenticationEntryPoint((req, res, ex) -> res.sendError(HttpServletResponse.SC_UNAUTHORIZED))
+                .accessDeniedHandler((req, res, ex) -> res.sendError(HttpServletResponse.SC_FORBIDDEN)))
             .authorizeHttpRequests(auth -> auth
-                // Preflight do navegador (OPTIONS) tem que passar livre, sem token, senão o CORS nunca responde
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                // Rotas públicas: login, registro, e as bibliotecas de exercício/comida
-                .requestMatchers("/api/users/register", "/api/users/login").permitAll()
-                .requestMatchers("/api/workout/**", "/api/diet/**").permitAll()
-                // Todo o resto exige token válido
+                .requestMatchers(HttpMethod.GET, "/ping").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/users/register", "/api/users/login").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/workout/**", "/api/diet/**").permitAll()
+                .requestMatchers("/api/admin/**").hasRole("SUPER_ADMIN")
                 .anyRequest().authenticated()
             )
-            .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
-
-        return http.build();
+            .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
+            .build();
     }
 }

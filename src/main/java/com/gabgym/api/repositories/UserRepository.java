@@ -1,10 +1,11 @@
 package com.gabgym.api.repositories;
 
 import com.gabgym.api.entities.User;
+import com.gabgym.api.entities.UserRole;
 import org.springframework.data.jpa.repository.JpaRepository;
 import java.util.Optional;
 
 public interface UserRepository extends JpaRepository<User, Long> {
-    
     Optional<User> findByUsername(String username);
+    boolean existsByRole(UserRole role);
 }
