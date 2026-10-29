@@ -70,7 +70,7 @@ class HttpAuthorizationTest {
         mvc.perform(put("/api/users/" + outro.getId())
                 .header("Authorization", "Bearer " + jwt.generateToken(aluno))
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\\"name\\":\\"Nome fraudulento\\"}"))
+                .content("{\"name\":\"Nome fraudulento\"}"))
             .andExpect(status().isForbidden());
     }
 
