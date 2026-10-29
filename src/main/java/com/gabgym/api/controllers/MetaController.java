@@ -33,7 +33,7 @@ public class MetaController {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Título inválido");
         }
         meta.setId(null);
-        meta.setUserId(auth.currentUser().getId());
+        meta.setUserId(auth.requireOwner(auth.currentUser().getId()).getId());
         meta.setStatus("ATIVA");
         return ResponseEntity.status(HttpStatus.CREATED).body(metas.save(meta));
     }
@@ -45,7 +45,7 @@ public class MetaController {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Status inválido");
         }
         return metas.findById(id).map(meta -> {
-            auth.requireOwnerOrAdmin(meta.getUserId());
+            auth.requireOwner(meta.getUserId());
             meta.setStatus(status);
             return ResponseEntity.ok(metas.save(meta));
         }).orElse(ResponseEntity.notFound().build());
