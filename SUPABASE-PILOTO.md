@@ -18,9 +18,9 @@ Transferências automáticas de credenciais entre contas ficaram indisponíveis.
 1. Supabase > projeto `gabgym-piloto-us` > SQL Editor: defina **uma nova senha aleatória forte** para o papel técnico:
    `ALTER ROLE gabgym_app WITH PASSWORD 'SENHA_GERADA_EM_GERENCIADOR_PRIVADO';`
    Substitua o placeholder apenas no painel seguro e não salve essa query no Git.
-2. Supabase > **Connect** > Session Pooler, porta `5432`: **copie o host real**, inclusive índice `aws-0`, `aws-1` etc. NÃO infira host só pela região.
-3. Render > crie serviço separado de teste com plano **Free** (não altere o serviço antigo), repo `Ivano-Gabriel/gabgym_backend_java_V2`, branch `rescue/security-auth-superadmin-2026-10-29`, runtime **Docker**, região Oregon. Configure variáveis **antes** de publicar:
-   - `DB_URL=jdbc:postgresql://HOST_REAL_DO_SESSION_POOLER:5432/postgres?sslmode=require`
+2. Host **confirmado pelo proprietário** no Supabase Connect, modo Session Pooler, porta `5432`: `aws-0-us-west-1.pooler.supabase.com`.
+3. Render > serviço de homologação **já criado**: `gabgym-api-piloto-us`, `https://dashboard.render.com/web/srv-dbhmhfe1egvs73fv1db0`, plano Free, autodeploy desativado; repo `Ivano-Gabriel/gabgym_backend_java_V2`, branch `rescue/security-auth-superadmin-2026-10-29`, runtime **Docker**, região Oregon. Configure variáveis **antes** de publicar:
+   - `DB_URL=jdbc:postgresql://aws-0-us-west-1.pooler.supabase.com:5432/postgres?sslmode=require`
    - `DB_USERNAME=gabgym_app.klydlavdlvyqdykyyiqh`
    - `DB_PASSWORD=...senha do papel criada no Supabase...`
    - `JWT_SECRET=...base64 de 48 bytes aleatórios, diferente do segredo antigo...`
@@ -35,7 +35,8 @@ Transferências automáticas de credenciais entre contas ficaram indisponíveis.
 ## Regras operacionais
 
 - O serviço Render original usa branch `main` com **autodeploy**. Um merge hoje dispararia publicação do backend antigo com configuração incompleta. Não fazer merge antes do smoke test e das variáveis finais.
-- O novo serviço Render **ainda não foi criado**: a ligação automática de segredos foi bloqueada; nenhuma senha ou chave ficou escrita neste repo.
+- Novo serviço Render separado **já foi criado** e aponta para o banco de teste (host e usuário), mas **não contém DB_PASSWORD nem JWT_SECRET**. Pode falhar ao iniciar até completar esses segredos em `Environment`. Não há segredos no repositório.
+- A Vercel recebeu somente a variável pública `REACT_APP_API_URL=https://gabgym-api-piloto-us.onrender.com/api`, restrita ao branch de Preview `rescue/auth-api-integration-2026-10-29`. Não foi alterada a variável de produção. Preview solicitado para validar a interface visual.
 - Banco Supabase Free: pode pausar por pouca atividade, não fornece backup automático e está sujeito às cotas do plano. Fazer exportações regulares e nunca usar como única cópia de dados pessoais importantes.
 - Não conectar os alunos diretamente ao Supabase Data API; manter o frontend falando exclusivamente com Spring Boot.
 - Na mudança definitiva para São Paulo, criar **novo projeto/organização**, exportar e restaurar PostgreSQL, validar Flyway, fazer cutover com janela/backup, atualizar credenciais e confirmar integridade. Não pressupor migração de região in-place.
