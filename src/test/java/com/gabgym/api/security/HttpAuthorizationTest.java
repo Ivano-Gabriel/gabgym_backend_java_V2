@@ -75,6 +75,43 @@ class HttpAuthorizationTest {
     }
 
     @Test
+    void superAdminPodeVerAlunosMasNaoEditarPerfis() throws Exception {
+        User admin = new User();
+        admin.setUsername("admin-" + UUID.randomUUID().toString().substring(0, 10));
+        admin.setPassword(passwords.encode("senha-admin-forte-para-teste"));
+        admin.setRole(UserRole.SUPER_ADMIN);
+        admin = users.save(admin);
+        User aluno = student();
+        String token = "Bearer " + jwt.generateToken(admin);
+
+        mvc.perform(get("/api/admin/students").header("Authorization", token))
+            .andExpect(status().isOk());
+        mvc.perform(get("/api/admin/students/" + aluno.getId())
+                .header("Authorization", token))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.username").value(aluno.getUsername()));
+
+        mvc.perform(put("/api/users/" + aluno.getId())
+                .header("Authorization", token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"name\":\"Alteracao administrativa\"}"))
+            .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void logoutRevogaTokenMesmoAntesDaExpiracao() throws Exception {
+        User aluno = student();
+        String token = "Bearer " + jwt.generateToken(aluno);
+
+        mvc.perform(get("/api/users/me").header("Authorization", token))
+            .andExpect(status().isOk());
+        mvc.perform(post("/api/users/logout").header("Authorization", token))
+            .andExpect(status().isNoContent());
+        mvc.perform(get("/api/users/me").header("Authorization", token))
+            .andExpect(status().isUnauthorized());
+    }
+
+    @Test
     void registroPublicoNaoPermiteEscolherSuperAdmin() throws Exception {
         String username = "novo-" + UUID.randomUUID().toString().substring(0, 10);
         mvc.perform(post("/api/users/register")
