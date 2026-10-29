@@ -29,7 +29,7 @@ public class DiaryLogController {
     public DiaryLog addLog(@RequestBody DiaryLog log) {
         // ID, usuário e timestamp de propriedade nunca vêm do cliente.
         log.setId(null);
-        log.setUserId(auth.currentUser().getId());
+        log.setUserId(auth.requireOwner(auth.currentUser().getId()).getId());
         if (log.getLogDate() == null) log.setLogDate(LocalDate.now());
         return logs.save(log);
     }
@@ -37,7 +37,7 @@ public class DiaryLogController {
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteLog(@PathVariable Long id) {
         return logs.findById(id).map(log -> {
-            auth.requireOwnerOrAdmin(log.getUserId());
+            auth.requireOwner(log.getUserId());
             logs.delete(log);
             return ResponseEntity.noContent().<Void>build();
         }).orElse(ResponseEntity.notFound().build());
