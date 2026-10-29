@@ -48,6 +48,13 @@ class AuthorizationServiceTest {
         assertDoesNotThrow(() -> authorization.requireOwnerOrAdmin(8L));
     }
 
+    @Test void superAdminNaoPodeAlterarRegistrosDosAlunos() {
+        loginAs("gestor", 1L, UserRole.SUPER_ADMIN);
+        ResponseStatusException ex = assertThrows(ResponseStatusException.class,
+            () -> authorization.requireOwner(8L));
+        assertEquals(HttpStatus.FORBIDDEN, ex.getStatusCode());
+    }
+
     @Test void requisicaoSemSessaoNaoPodeConsultarDados() {
         ResponseStatusException ex = assertThrows(ResponseStatusException.class,
             () -> authorization.requireOwnerOrAdmin(7L));
