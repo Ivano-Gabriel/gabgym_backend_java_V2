@@ -8,6 +8,8 @@ import com.gabgym.api.repositories.UserRepository;
 import com.gabgym.api.repositories.DailyLogRepository;
 import com.gabgym.api.security.AuthorizationService;
 import com.gabgym.api.security.LoginRateLimiter;
+import com.gabgym.api.security.TotpService;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -25,19 +27,21 @@ public class UserController {
     private final JwtUtil jwt;
     private final AuthorizationService authorization;
     private final LoginRateLimiter rateLimiter;
+    private final TotpService totp;
 
     public UserController(UserRepository users, DailyLogRepository logs, PasswordEncoder passwords,
-                          JwtUtil jwt, AuthorizationService authorization, LoginRateLimiter rateLimiter) {
+                          JwtUtil jwt, AuthorizationService authorization, LoginRateLimiter rateLimiter, TotpService totp) {
         this.users = users;
         this.logs = logs;
         this.passwords = passwords;
         this.jwt = jwt;
         this.authorization = authorization;
         this.rateLimiter = rateLimiter;
+        this.totp = totp;
     }
 
     // DTOs impedem que um cliente escolha sua própria role, ID ou flags de sessão.
-    public record Credentials(String username, String password) {}
+    public record Credentials(String username, String password, String codigoMfa) {}
     public record LoginResponse(String token, Long userId, String username, UserRole role) {}
     public record UserProfile(Long id, String username, String name, Integer age,
                               Double weight, Double height, String gender, String objective,
@@ -70,6 +74,7 @@ public class UserController {
     }
 
     @PostMapping("/login")
+    @Transactional
     public LoginResponse login(@RequestBody Credentials input) {
         if (input == null || input.username() == null || input.password() == null) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Usuário ou senha inválidos");
@@ -78,6 +83,22 @@ public class UserController {
         User user = users.findByUsername(input.username()).orElse(null);
         if (user == null || !user.isActive() || !passwords.matches(input.password(), user.getPassword())) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Usuário ou senha inválidos");
+        }
+        if (user.getRole() == UserRole.SUPER_ADMIN) {
+            if (!totp.isConfigured()) {
+                throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                    "Autenticação administrativa não configurada");
+            }
+            if (input.codigoMfa() == null || input.codigoMfa().isBlank()) {
+                throw new ResponseStatusException(HttpStatus.PRECONDITION_REQUIRED,
+                    "MFA_REQUIRED");
+            }
+            long counter = totp.validatedCounter(input.codigoMfa(), user.getLastTotpCounter());
+            if (counter < 0) {
+                throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Usuário ou código inválidos");
+            }
+            user.setLastTotpCounter(counter);
+            users.saveAndFlush(user);
         }
         return new LoginResponse(jwt.generateToken(user), user.getId(), user.getUsername(), user.getRole());
     }
