@@ -2,6 +2,7 @@ package com.gabgym.api.security;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
+import org.springframework.beans.factory.annotation.Autowired;
 import java.time.Clock;
 import java.util.Arrays;
 import java.nio.ByteBuffer;
@@ -19,6 +20,7 @@ public class TotpService {
     private final byte[] secret;
     private final Clock clock;
 
+    @Autowired
     public TotpService(@Value("${ADMIN_TOTP_SECRET:}") String secret) {
         this(secret, Clock.systemUTC());
     }
