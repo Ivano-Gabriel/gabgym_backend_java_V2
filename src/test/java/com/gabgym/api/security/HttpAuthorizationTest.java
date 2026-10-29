@@ -64,6 +64,17 @@ class HttpAuthorizationTest {
     }
 
     @Test
+    void alunoNaoPodeAlterarPerfilDeOutroAluno() throws Exception {
+        User aluno = student();
+        User outro = student();
+        mvc.perform(put("/api/users/" + outro.getId())
+                .header("Authorization", "Bearer " + jwt.generateToken(aluno))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\\"name\\":\\"Nome fraudulento\\"}"))
+            .andExpect(status().isForbidden());
+    }
+
+    @Test
     void registroPublicoNaoPermiteEscolherSuperAdmin() throws Exception {
         String username = "novo-" + UUID.randomUUID().toString().substring(0, 10);
         mvc.perform(post("/api/users/register")
