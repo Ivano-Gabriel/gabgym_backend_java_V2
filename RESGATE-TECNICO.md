@@ -38,7 +38,7 @@ Apenas ler alunos é o escopo inicial do superadmin; possíveis edições devem 
 ## Limitações antes de produção
 
 - Ainda é **primeira etapa de segurança**, não uma auditoria concluída nem garantia de segurança absoluta.
-- Banco usa `spring.jpa.hibernate.ddl-auto=update` temporariamente: antes de produção introduzir Flyway e `validate`; inspecionar e migrar os dados existentes sem apagá-los.
+- Flyway V1 cria um schema PostgreSQL privado `gabgym`, com `ddl-auto=validate`. Projetado para **banco novo**; dados legados de MySQL precisam de backup/migração separada antes de qualquer substituição.
 - Rate limit de login é local à instância e reinicia com a aplicação. Para maior escala, usar limitação distribuída e controles contra abuso.
 - MFA TOTP inicial de superadmin depende de configuração privada; falta fluxo de recuperação segura, proteção contra dispositivos perdidos, recuperação de senha, logs estruturados/auditoria, backups e testes E2E completos.
 - JWT fica no `sessionStorage` no frontend por compatibilidade; necessita de proteção contínua contra XSS. Futuramente avaliar cookies HttpOnly com CSRF e refresh seguro.
