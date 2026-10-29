@@ -41,3 +41,13 @@ Transferências automáticas de credenciais entre contas ficaram indisponíveis.
 - Não conectar os alunos diretamente ao Supabase Data API; manter o frontend falando exclusivamente com Spring Boot.
 - Na mudança definitiva para São Paulo, criar **novo projeto/organização**, exportar e restaurar PostgreSQL, validar Flyway, fazer cutover com janela/backup, atualizar credenciais e confirmar integridade. Não pressupor migração de região in-place.
 - Antes de dados reais de saúde, revisar LGPD, políticas de retenção, backups, MFA e controles de acesso.
+
+
+## Deploy de homologação: diagnóstico real de 29/10
+
+- Primeiro Render deploy `dep-dbhmhfm1egvs73fv1e30`: Docker build OK; o processo Java falhou por `Could not resolve placeholder 'JWT_SECRET'`.
+- Segundo Render deploy `dep-dbhmm0egekts73bmfn0g`: build OK; `JWT_SECRET` foi lido, mas falhou na validação `chave forte em base64 (mín. 32 bytes)`. Gere uma chave nova com 48 bytes aleatórios, convertidos para Base64, e coloque diretamente na variável privada `JWT_SECRET` do Render.
+- Supabase: consulta de diagnóstico `pg_authid` confirmou que `gabgym_app` existe mas **ainda não possui senha atribuída**. Defina-a *privadamente*, usando exatamente a mesma senha de `DB_PASSWORD` no Render (não inclua segredos na documentação, commits ou chat). Cuidado com histórico de SQL Editor ao usar `ALTER ROLE ... PASSWORD`; prefira um cliente SQL seguro ou descarte o histórico.
+- CORS do serviço Render de homologação já aceita `https://gabgym-frontend.vercel.app` e o preview `https://gabgym-frontend-4aotfj671-gabriel-team3.vercel.app` via `CORS_ORIGIN` (lista separada por vírgulas). Alterar a env pública disparou mais um deploy; ele só deve ficar saudável após corrigir JWT e senha no PostgreSQL.
+- Preview Vercel `https://gabgym-frontend-4aotfj671-gabriel-team3.vercel.app`: build READY. Trata-se de preview, potencialmente protegido por Vercel Authentication.
+- Depois das duas correções de segredo, confirmar Render `live`, `GET /ping` HTTP 200, existência das 8 tabelas `gabgym`, Flyway V1, Security Advisors e testar fluxo registro/login sem compartilhar tokens.
