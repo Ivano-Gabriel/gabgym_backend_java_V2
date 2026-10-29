@@ -2,42 +2,44 @@ package com.gabgym.api.controllers;
 
 import com.gabgym.api.entities.DiaryLog;
 import com.gabgym.api.repositories.DiaryLogRepository;
+import com.gabgym.api.security.AuthorizationService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
 import java.time.LocalDate;
 import java.util.List;
 
 @RestController
 @RequestMapping("/api/logs")
 public class DiaryLogController {
+    private final DiaryLogRepository logs;
+    private final AuthorizationService auth;
 
-    private final DiaryLogRepository repository;
-
-    public DiaryLogController(DiaryLogRepository repository) {
-        this.repository = repository;
+    public DiaryLogController(DiaryLogRepository logs, AuthorizationService auth) {
+        this.logs = logs;
+        this.auth = auth;
     }
 
     @GetMapping("/user/{userId}")
-    public ResponseEntity<List<DiaryLog>> getLogsByDate(@PathVariable Long userId, @RequestParam String date) {
-        LocalDate logDate = LocalDate.parse(date);
-        return ResponseEntity.ok(repository.findByUserIdAndLogDate(userId, logDate));
+    public List<DiaryLog> getLogsByDate(@PathVariable Long userId, @RequestParam LocalDate date) {
+        auth.requireOwnerOrAdmin(userId);
+        return logs.findByUserIdAndLogDate(userId, date);
     }
 
     @PostMapping
-    public ResponseEntity<DiaryLog> addLog(@RequestBody DiaryLog log) {
-        if (log.getLogDate() == null) {
-            log.setLogDate(LocalDate.now());
-        }
-        return ResponseEntity.ok(repository.save(log));
+    public DiaryLog addLog(@RequestBody DiaryLog log) {
+        // ID, usuário e timestamp de propriedade nunca vêm do cliente.
+        log.setId(null);
+        log.setUserId(auth.currentUser().getId());
+        if (log.getLogDate() == null) log.setLogDate(LocalDate.now());
+        return logs.save(log);
     }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteLog(@PathVariable Long id) {
-        if (repository.existsById(id)) {
-            repository.deleteById(id);
-            return ResponseEntity.ok().build();
-        }
-        return ResponseEntity.notFound().build();
+        return logs.findById(id).map(log -> {
+            auth.requireOwnerOrAdmin(log.getUserId());
+            logs.delete(log);
+            return ResponseEntity.noContent().<Void>build();
+        }).orElse(ResponseEntity.notFound().build());
     }
 }
