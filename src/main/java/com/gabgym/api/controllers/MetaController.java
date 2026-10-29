@@ -2,41 +2,52 @@ package com.gabgym.api.controllers;
 
 import com.gabgym.api.entities.Meta;
 import com.gabgym.api.repositories.MetaRepository;
+import com.gabgym.api.security.AuthorizationService;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
+import org.springframework.web.server.ResponseStatusException;
 import java.util.List;
 import java.util.Map;
 
 @RestController
 @RequestMapping("/api/metas")
 public class MetaController {
-
-    private final MetaRepository repository;
-
-    public MetaController(MetaRepository repository) {
-        this.repository = repository;
+    private final MetaRepository metas;
+    private final AuthorizationService auth;
+    public MetaController(MetaRepository metas, AuthorizationService auth) {
+        this.metas = metas;
+        this.auth = auth;
     }
 
     @GetMapping("/user/{userId}")
-    public ResponseEntity<List<Meta>> getMetasByUser(@PathVariable Long userId) {
-        return ResponseEntity.ok(repository.findByUserId(userId));
+    public List<Meta> getMetasByUser(@PathVariable Long userId) {
+        auth.requireOwnerOrAdmin(userId);
+        return metas.findByUserId(userId);
     }
 
     @PostMapping
     public ResponseEntity<Meta> createMeta(@RequestBody Meta meta) {
-        if (meta.getStatus() == null) {
-            meta.setStatus("ATIVA");
+        if (meta.getTitulo() == null || meta.getTitulo().isBlank()
+            || meta.getTitulo().length() > 200) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Título inválido");
         }
-        return ResponseEntity.ok(repository.save(meta));
+        meta.setId(null);
+        meta.setUserId(auth.currentUser().getId());
+        meta.setStatus("ATIVA");
+        return ResponseEntity.status(HttpStatus.CREATED).body(metas.save(meta));
     }
 
-    // Recebe { "status": "CONCLUIDA" } ou { "status": "DESISTIDA" }
     @PutMapping("/{id}/status")
-    public ResponseEntity<Meta> updateStatus(@PathVariable Long id, @RequestBody Map<String, String> body) {
-        return repository.findById(id).map(meta -> {
-            meta.setStatus(body.get("status"));
-            return ResponseEntity.ok(repository.save(meta));
+    public ResponseEntity<Meta> updateStatus(@PathVariable Long id, @RequestBody Map<String, String> data) {
+        String status = data.get("status");
+        if (!List.of("ATIVA", "CONCLUIDA", "DESISTIDA").contains(status)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Status inválido");
+        }
+        return metas.findById(id).map(meta -> {
+            auth.requireOwnerOrAdmin(meta.getUserId());
+            meta.setStatus(status);
+            return ResponseEntity.ok(metas.save(meta));
         }).orElse(ResponseEntity.notFound().build());
     }
 }
