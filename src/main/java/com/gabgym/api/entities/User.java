@@ -23,6 +23,7 @@ public class User {
 
     private Boolean active = true;
     private Integer sessionVersion = 0;
+    private Long lastTotpCounter = -1L;
 
     private String name;
     private Integer age;
@@ -51,6 +52,9 @@ public class User {
     public void setActive(boolean active) { this.active = active; }
     public int getSessionVersion() { return sessionVersion == null ? 0 : sessionVersion; }
     public void setSessionVersion(int version) { this.sessionVersion = version; }
+
+    public long getLastTotpCounter() { return lastTotpCounter == null ? -1L : lastTotpCounter; }
+    public void setLastTotpCounter(long counter) { this.lastTotpCounter = counter; }
 
     public String getName() { return name; }
     public void setName(String name) { this.name = name; }
