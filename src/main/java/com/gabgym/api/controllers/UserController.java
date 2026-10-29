@@ -102,7 +102,7 @@ public class UserController {
 
     @PutMapping("/{id}")
     public ResponseEntity<UserProfile> updateUser(@PathVariable Long id, @RequestBody ProfileUpdate input) {
-        authorization.requireOwnerOrAdmin(id);
+        authorization.requireOwner(id);
         return users.findById(id).map(user -> {
             if (input.name() != null) user.setName(input.name());
             if (input.age() != null && input.age() >= 0 && input.age() <= 120) user.setAge(input.age());
@@ -117,7 +117,7 @@ public class UserController {
 
     @PostMapping("/{id}/logs")
     public ResponseEntity<DailyLog> addLog(@PathVariable Long id, @RequestBody DailyLog input) {
-        authorization.requireOwnerOrAdmin(id);
+        authorization.requireOwner(id);
         User user = users.findById(id)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
         DailyLog today = logs.findByUserIdAndDate(id, LocalDate.now()).orElseGet(() -> {
