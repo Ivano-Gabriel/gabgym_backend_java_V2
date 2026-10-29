@@ -1,0 +1,26 @@
+name: GabGym backend security checks
+on:
+  push:
+    branches: ['rescue/**']
+  pull_request:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - name: Compile and run tests
+        run: ./mvnw -B clean test
+        env:
+          DB_URL: jdbc:h2:mem:gabgymtest;DB_CLOSE_DELAY=-1
+          DB_USERNAME: sa
+          DB_PASSWORD: ''
+          DB_DIALECT: org.hibernate.dialect.H2Dialect
+          JWT_SECRET: dGhpcy1pcy1hLXRlc3Rpbmctb25seS1zdHJpbmctdGhhdC1pcy1sb25nLWVub3VnaC1mb3ItaG1hYw==
