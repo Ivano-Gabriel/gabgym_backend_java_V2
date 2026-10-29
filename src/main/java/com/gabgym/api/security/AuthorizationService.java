@@ -28,6 +28,14 @@ public class AuthorizationService {
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Sessão inválida"));
     }
 
+    public User requireOwner(Long targetUserId) {
+        User actor = currentUser();
+        if (actor.getRole() != UserRole.ALUNO || !actor.getId().equals(targetUserId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Acesso negado");
+        }
+        return actor;
+    }
+
     public User requireOwnerOrAdmin(Long targetUserId) {
         User actor = currentUser();
         if (actor.getRole() != UserRole.SUPER_ADMIN && !actor.getId().equals(targetUserId)) {
