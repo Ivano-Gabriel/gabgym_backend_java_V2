@@ -2,115 +2,141 @@ package com.gabgym.api.controllers;
 
 import com.gabgym.api.config.JwtUtil;
 import com.gabgym.api.entities.User;
+import com.gabgym.api.entities.UserRole;
 import com.gabgym.api.entities.DailyLog;
 import com.gabgym.api.repositories.UserRepository;
 import com.gabgym.api.repositories.DailyLogRepository;
+import com.gabgym.api.security.AuthorizationService;
+import com.gabgym.api.security.LoginRateLimiter;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
-
+import org.springframework.web.server.ResponseStatusException;
+import java.time.LocalDate;
 import java.util.List;
-import java.util.Map;
 
 @RestController
 @RequestMapping("/api/users")
-@CrossOrigin(origins = "*")
 public class UserController {
+    private final UserRepository users;
+    private final DailyLogRepository logs;
+    private final PasswordEncoder passwords;
+    private final JwtUtil jwt;
+    private final AuthorizationService authorization;
+    private final LoginRateLimiter rateLimiter;
 
-    private final UserRepository userRepo;
-    private final DailyLogRepository logRepo;
-    private final PasswordEncoder passwordEncoder;
-    private final JwtUtil jwtUtil;
-
-    public UserController(UserRepository userRepo, DailyLogRepository logRepo,
-                           PasswordEncoder passwordEncoder, JwtUtil jwtUtil) {
-        this.userRepo = userRepo;
-        this.logRepo = logRepo;
-        this.passwordEncoder = passwordEncoder;
-        this.jwtUtil = jwtUtil;
+    public UserController(UserRepository users, DailyLogRepository logs, PasswordEncoder passwords,
+                          JwtUtil jwt, AuthorizationService authorization, LoginRateLimiter rateLimiter) {
+        this.users = users;
+        this.logs = logs;
+        this.passwords = passwords;
+        this.jwt = jwt;
+        this.authorization = authorization;
+        this.rateLimiter = rateLimiter;
     }
 
-    // Cria a conta do usuário (AGORA com senha criptografada)
-    @PostMapping("/register")
-    public ResponseEntity<User> register(@RequestBody User user) {
-        user.setPassword(passwordEncoder.encode(user.getPassword()));
-        return ResponseEntity.ok(userRepo.save(user));
-    }
-
-    // NOVO: Login — recebe username+senha, devolve o token JWT
-    @PostMapping("/login")
-    public ResponseEntity<?> login(@RequestBody Map<String, String> credentials) {
-        String username = credentials.get("username");
-        String rawPassword = credentials.get("password");
-
-        User user = userRepo.findByUsername(username).orElse(null);
-
-        if (user == null || !passwordEncoder.matches(rawPassword, user.getPassword())) {
-            return ResponseEntity.status(401).body(Map.of("error", "Usuário ou senha inválidos"));
+    // DTOs impedem que um cliente escolha sua própria role, ID ou flags de sessão.
+    public record Credentials(String username, String password) {}
+    public record LoginResponse(String token, Long userId, String username, UserRole role) {}
+    public record UserProfile(Long id, String username, String name, Integer age,
+                              Double weight, Double height, String gender, String objective,
+                              String activityLevel, UserRole role) {
+        public static UserProfile from(User user) {
+            return new UserProfile(user.getId(), user.getUsername(), user.getName(),
+                user.getAge(), user.getWeight(), user.getHeight(), user.getGender(),
+                user.getObjective(), user.getActivityLevel(), user.getRole());
         }
+    }
+    public record ProfileUpdate(String name, Integer age, Double weight, Double height,
+                                String gender, String objective, String activityLevel) {}
 
-        String token = jwtUtil.generateToken(user.getUsername());
-        return ResponseEntity.ok(Map.of(
-                "token", token,
-                "userId", user.getId(),
-                "username", user.getUsername()
-        ));
+    @PostMapping("/register")
+    public ResponseEntity<UserProfile> register(@RequestBody Credentials input) {
+        if (input == null || input.username() == null || !input.username().matches("[a-zA-Z0-9_.-]{3,40}")
+                || input.password() == null || input.password().length() < 10
+                || input.password().length() > 72) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                "Usuário deve ter 3 a 40 caracteres e senha de 10 a 72 caracteres");
+        }
+        if (users.findByUsername(input.username()).isPresent()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Usuário indisponível");
+        }
+        User user = new User();
+        user.setUsername(input.username());
+        user.setPassword(passwords.encode(input.password()));
+        user.setRole(UserRole.ALUNO);
+        return ResponseEntity.status(HttpStatus.CREATED).body(UserProfile.from(users.save(user)));
     }
 
-    // Busca o perfil do usuário
+    @PostMapping("/login")
+    public LoginResponse login(@RequestBody Credentials input) {
+        if (input == null || input.username() == null || input.password() == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Usuário ou senha inválidos");
+        }
+        rateLimiter.check(input.username());
+        User user = users.findByUsername(input.username()).orElse(null);
+        if (user == null || !user.isActive() || !passwords.matches(input.password(), user.getPassword())) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Usuário ou senha inválidos");
+        }
+        return new LoginResponse(jwt.generateToken(user), user.getId(), user.getUsername(), user.getRole());
+    }
+
+    @PostMapping("/logout")
+    public ResponseEntity<Void> logout() {
+        User user = authorization.currentUser();
+        user.setSessionVersion(user.getSessionVersion() + 1);
+        users.save(user);
+        return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/me")
+    public UserProfile me() { return UserProfile.from(authorization.currentUser()); }
+
     @GetMapping("/{id}")
-    public ResponseEntity<User> getUser(@PathVariable Long id) {
-        return userRepo.findById(id)
-                .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
+    public ResponseEntity<UserProfile> getUser(@PathVariable Long id) {
+        authorization.requireOwnerOrAdmin(id);
+        return users.findById(id).map(user -> ResponseEntity.ok(UserProfile.from(user)))
+            .orElse(ResponseEntity.notFound().build());
     }
 
-    // Atualiza os dados de perfil do usuário (nome, idade, peso, altura, gênero, objetivo, nível de atividade)
     @PutMapping("/{id}")
-    public ResponseEntity<User> updateUser(@PathVariable Long id, @RequestBody User dadosNovos) {
-        return userRepo.findById(id).map(user -> {
-            if (dadosNovos.getName() != null) user.setName(dadosNovos.getName());
-            if (dadosNovos.getAge() != null) user.setAge(dadosNovos.getAge());
-            if (dadosNovos.getWeight() != null) user.setWeight(dadosNovos.getWeight());
-            if (dadosNovos.getHeight() != null) user.setHeight(dadosNovos.getHeight());
-            if (dadosNovos.getGender() != null) user.setGender(dadosNovos.getGender());
-            if (dadosNovos.getObjective() != null) user.setObjective(dadosNovos.getObjective());
-            if (dadosNovos.getActivityLevel() != null) user.setActivityLevel(dadosNovos.getActivityLevel());
-            return ResponseEntity.ok(userRepo.save(user));
+    public ResponseEntity<UserProfile> updateUser(@PathVariable Long id, @RequestBody ProfileUpdate input) {
+        authorization.requireOwnerOrAdmin(id);
+        return users.findById(id).map(user -> {
+            if (input.name() != null) user.setName(input.name());
+            if (input.age() != null && input.age() >= 0 && input.age() <= 120) user.setAge(input.age());
+            if (input.weight() != null && input.weight() > 0 && input.weight() < 800) user.setWeight(input.weight());
+            if (input.height() != null && input.height() > 0 && input.height() < 350) user.setHeight(input.height());
+            if (input.gender() != null) user.setGender(input.gender());
+            if (input.objective() != null) user.setObjective(input.objective());
+            if (input.activityLevel() != null) user.setActivityLevel(input.activityLevel());
+            return ResponseEntity.ok(UserProfile.from(users.save(user)));
         }).orElse(ResponseEntity.notFound().build());
     }
 
     @PostMapping("/{id}/logs")
-public ResponseEntity<DailyLog> addLog(@PathVariable Long id, @RequestBody DailyLog log) {
-    return userRepo.findById(id).map(user -> {
+    public ResponseEntity<DailyLog> addLog(@PathVariable Long id, @RequestBody DailyLog input) {
+        authorization.requireOwnerOrAdmin(id);
+        User user = users.findById(id)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        DailyLog today = logs.findByUserIdAndDate(id, LocalDate.now()).orElseGet(() -> {
+            DailyLog fresh = new DailyLog();
+            fresh.setUser(user);
+            return fresh;
+        });
+        today.setCaloriesConsumed(today.getCaloriesConsumed() + input.getCaloriesConsumed());
+        today.setProteinConsumed(today.getProteinConsumed() + input.getProteinConsumed());
+        today.setCarbsConsumed(today.getCarbsConsumed() + input.getCarbsConsumed());
+        today.setFatConsumed(today.getFatConsumed() + input.getFatConsumed());
+        today.setWaterMl(today.getWaterMl() + input.getWaterMl());
+        if (input.getSleepHours() > 0) today.setSleepHours(input.getSleepHours());
+        return ResponseEntity.ok(logs.save(today));
+    }
 
-        // Verifica se já existe um log de hoje pra esse usuário
-        DailyLog logDoDia = logRepo.findByUserIdAndDate(id, java.time.LocalDate.now())
-                .orElseGet(() -> {
-                    DailyLog novo = new DailyLog();
-                    novo.setUser(user);
-                    return novo;
-                });
-
-        // Soma os valores novos em cima do que já existia no dia
-        logDoDia.setCaloriesConsumed(logDoDia.getCaloriesConsumed() + log.getCaloriesConsumed());
-        logDoDia.setProteinConsumed(logDoDia.getProteinConsumed() + log.getProteinConsumed());
-        logDoDia.setCarbsConsumed(logDoDia.getCarbsConsumed() + log.getCarbsConsumed());
-        logDoDia.setFatConsumed(logDoDia.getFatConsumed() + log.getFatConsumed());
-        logDoDia.setWaterMl(logDoDia.getWaterMl() + log.getWaterMl());
-
-        // Sono não faz sentido "somar" (não é cumulativo tipo caloria) — substitui pelo valor mais recente
-        if (log.getSleepHours() > 0) {
-            logDoDia.setSleepHours(log.getSleepHours());
-        }
-
-        return ResponseEntity.ok(logRepo.save(logDoDia));
-    }).orElse(ResponseEntity.notFound().build());
-}
-
-    // Mostra o histórico diário dele
     @GetMapping("/{id}/logs")
-    public ResponseEntity<List<DailyLog>> getUserLogs(@PathVariable Long id) {
-        return ResponseEntity.ok(logRepo.findByUserId(id));
+    public List<DailyLog> getUserLogs(@PathVariable Long id) {
+        authorization.requireOwnerOrAdmin(id);
+        return logs.findByUserId(id);
     }
 }
