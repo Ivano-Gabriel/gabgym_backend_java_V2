@@ -38,7 +38,8 @@ public class AuthorizationService {
 
     public User requireOwnerOrAdmin(Long targetUserId) {
         User actor = currentUser();
-        if (actor.getRole() != UserRole.SUPER_ADMIN && !actor.getId().equals(targetUserId)) {
+        if (actor.getRole() != UserRole.SUPER_ADMIN &&
+            (actor.getRole() != UserRole.ALUNO || !actor.getId().equals(targetUserId))) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Acesso negado");
         }
         return actor;

@@ -73,6 +73,28 @@ public class UserController {
         return ResponseEntity.status(HttpStatus.CREATED).body(UserProfile.from(users.save(user)));
     }
 
+    /**
+     * Cadastro profissional separado do aluno: o cliente jamais define role no JSON.
+     * Credenciais compartilhadas com o login normal; profissional não ganha permissão de admin.
+     */
+    @PostMapping("/register-personal")
+    public ResponseEntity<UserProfile> registerPersonal(@RequestBody Credentials input) {
+        if (input == null || input.username() == null
+                || !input.username().matches("[a-zA-Z0-9_.-]{3,40}")
+                || input.password() == null || input.password().length() < 10
+                || input.password().length() > 72) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Usuário ou senha inválidos");
+        }
+        if (users.findByUsername(input.username()).isPresent()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Usuário indisponível");
+        }
+        User coach = new User();
+        coach.setUsername(input.username());
+        coach.setPassword(passwords.encode(input.password()));
+        coach.setRole(UserRole.PERSONAL);
+        return ResponseEntity.status(HttpStatus.CREATED).body(UserProfile.from(users.save(coach)));
+    }
+
     @PostMapping("/login")
     @Transactional
     public LoginResponse login(@RequestBody Credentials input) {
