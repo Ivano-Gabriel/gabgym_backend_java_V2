@@ -3,6 +3,7 @@ package com.gabgym.api.config;
 import com.gabgym.api.entities.User;
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.io.Decoders;
+import io.jsonwebtoken.io.DecodingException;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -18,7 +19,14 @@ public class JwtUtil {
     public JwtUtil(@Value("${jwt.secret}") String base64Secret,
                    @Value("${jwt.expiration-ms:7200000}") long expirationMs) {
         try {
-            byte[] raw = Decoders.BASE64.decode(base64Secret);
+            byte[] raw;
+            try {
+                raw = Decoders.BASE64.decode(base64Secret);
+            } catch (DecodingException invalidStandardBase64) {
+                // Render pode guardar uma chave forte em Base64URL (caracteres '-' e '_').
+                // Mesmos bytes e mesmo requisito de entropia, sem girar a chave.
+                raw = Decoders.BASE64URL.decode(base64Secret);
+            }
             if (raw.length < 32 || expirationMs < 60_000 || expirationMs > 86_400_000) {
                 throw new IllegalArgumentException("Configuração JWT inválida");
             }
