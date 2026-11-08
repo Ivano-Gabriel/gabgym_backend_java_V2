@@ -90,13 +90,17 @@ public class PersonalController {
         User coach=users.findByUsername(username)
             .filter(u->u.isActive() && u.getRole()==UserRole.PERSONAL)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,"Personal indisponível"));
-        CoachRelationship rel=relationships.findByStudentId(student.getId()).orElseGet(()->{
+        Optional<CoachRelationship> previous=relationships.findByStudentId(student.getId());
+        if(previous.isPresent() && ("ACTIVE".equals(previous.get().getStatus())
+                                    || "PENDING".equals(previous.get().getStatus())))
+            throw new ResponseStatusException(HttpStatus.CONFLICT,"Já existe uma solicitação ou vínculo");
+        CoachRelationship rel=previous.orElseGet(()->{
             CoachRelationship created=new CoachRelationship();
             created.setStudentId(student.getId());
             return created;
         });
-        if("ACTIVE".equals(rel.getStatus()) || "PENDING".equals(rel.getStatus()))
-            throw new ResponseStatusException(HttpStatus.CONFLICT,"Já existe uma solicitação ou vínculo");
+        // Uma nova autorização nunca herda mensagens e anotações do vínculo anterior.
+        if(previous.isPresent()) entries.deleteByRelationshipId(rel.getId());
         rel.setCoachId(coach.getId());
         rel.setStatus("PENDING");
         relationships.save(rel);
