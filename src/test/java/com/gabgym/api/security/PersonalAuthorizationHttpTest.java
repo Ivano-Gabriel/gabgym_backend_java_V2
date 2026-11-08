@@ -144,4 +144,32 @@ class PersonalAuthorizationHttpTest {
              .content("{\"decision\":\"APPROVE\"}"))
              .andExpect(status().isOk()).andExpect(jsonPath("$.status").value("APPROVED"));
     }
+
+    @Test
+    void trocarPersonalNaoRepassaAnotacoesOuConversasDoAnterior() throws Exception {
+        User student=member(UserRole.ALUNO),first=member(UserRole.PERSONAL),second=member(UserRole.PERSONAL);
+        mvc.perform(post("/api/personal/student/requests").header("Authorization",bearer(student))
+            .contentType(MediaType.APPLICATION_JSON).content(requestBody(first))).andExpect(status().isCreated());
+        mvc.perform(post("/api/personal/coach/requests/"+student.getId()+"/decision")
+            .header("Authorization",bearer(first)).contentType(MediaType.APPLICATION_JSON)
+            .content("{\"decision\":\"ACCEPT\"}")).andExpect(status().isOk());
+        mvc.perform(post("/api/personal/students/"+student.getId()+"/timeline")
+            .header("Authorization",bearer(first)).contentType(MediaType.APPLICATION_JSON)
+            .content("{\"kind\":\"NOTE\",\"content\":\"Confidencial do primeiro\"}")).andExpect(status().isCreated());
+        mvc.perform(post("/api/personal/students/"+student.getId()+"/timeline")
+            .header("Authorization",bearer(first)).contentType(MediaType.APPLICATION_JSON)
+            .content("{\"kind\":\"MESSAGE\",\"content\":\"Mensagem do primeiro\"}")).andExpect(status().isCreated());
+        mvc.perform(delete("/api/personal/student/connection").header("Authorization",bearer(student)))
+            .andExpect(status().isNoContent());
+        mvc.perform(post("/api/personal/student/requests").header("Authorization",bearer(student))
+            .contentType(MediaType.APPLICATION_JSON).content(requestBody(second))).andExpect(status().isCreated());
+        mvc.perform(post("/api/personal/coach/requests/"+student.getId()+"/decision")
+            .header("Authorization",bearer(second)).contentType(MediaType.APPLICATION_JSON)
+            .content("{\"decision\":\"ACCEPT\"}")).andExpect(status().isOk());
+        mvc.perform(get("/api/personal/students/"+student.getId()+"/timeline")
+            .header("Authorization",bearer(second))).andExpect(status().isOk())
+            .andExpect(jsonPath("$").isEmpty());
+        mvc.perform(get("/api/personal/students/"+student.getId()+"/timeline")
+            .header("Authorization",bearer(first))).andExpect(status().isForbidden());
+    }
 }
