@@ -7,4 +7,5 @@ import java.util.Optional;
 public interface CoachEntryRepository extends JpaRepository<CoachEntry, Long> {
     List<CoachEntry> findTop100ByRelationshipIdOrderByCreatedAtDesc(Long relationshipId);
     Optional<CoachEntry> findByIdAndRelationshipId(Long id,Long relationshipId);
+    long deleteByRelationshipId(Long relationshipId);
 }
