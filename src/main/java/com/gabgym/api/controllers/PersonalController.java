@@ -153,7 +153,10 @@ public class PersonalController {
         if(requested.isBefore(LocalDate.now().minusYears(2))||requested.isAfter(LocalDate.now().plusDays(1)))
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Data fora do intervalo");
         User student=users.findById(studentId).orElseThrow();
-        List<DiaryLog> items=logs.findByUserIdAndLogDate(studentId,requested);
+        // Escopo de consentimento: compartilhar SOMENTE alimentação, água e treino.
+        List<DiaryLog> items=logs.findByUserIdAndLogDate(studentId,requested).stream()
+            .filter(x -> List.of("food","water","exercise","cardio").contains(x.getType()))
+            .toList();
         int water=items.stream().filter(x->"water".equals(x.getType()))
             .mapToInt(x->x.getVolume()==null?0:Math.max(0,x.getVolume())).sum();
         int calories=items.stream().filter(x->"food".equals(x.getType()))
