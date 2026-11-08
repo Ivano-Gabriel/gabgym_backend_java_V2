@@ -34,7 +34,7 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/ping").permitAll()
-                .requestMatchers(HttpMethod.POST, "/api/users/register", "/api/users/login").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/users/register", "/api/users/register-personal", "/api/users/login").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/workout/**", "/api/diet/**").permitAll()
                 .requestMatchers("/api/admin/**").hasRole("SUPER_ADMIN")
                 .anyRequest().authenticated()
