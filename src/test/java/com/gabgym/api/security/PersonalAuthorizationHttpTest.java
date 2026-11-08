@@ -85,10 +85,14 @@ class PersonalAuthorizationHttpTest {
         DiaryLog water=new DiaryLog();water.setUserId(student.getId());water.setType("water");
         water.setVolume(300);water.setLogDate(LocalDate.now());logs.save(water);
 
+        DiaryLog privateEntry=new DiaryLog();privateEntry.setUserId(student.getId());
+        privateEntry.setType("private");privateEntry.setName("Registro fora do consentimento");
+        privateEntry.setLogDate(LocalDate.now());logs.save(privateEntry);
         mvc.perform(get("/api/personal/coach/students/"+student.getId()+"/day")
              .header("Authorization",bearer(coach)))
              .andExpect(status().isOk()).andExpect(jsonPath("$.calories").value(550))
-             .andExpect(jsonPath("$.waterMl").value(300));
+             .andExpect(jsonPath("$.waterMl").value(300))
+             .andExpect(jsonPath("$.logs.length()").value(2));
         mvc.perform(get("/api/personal/coach/students/"+student.getId()+"/day")
              .header("Authorization",bearer(another))).andExpect(status().isForbidden());
         // Vínculo Coach jamais concede acesso a endpoint legado que exige dono.
